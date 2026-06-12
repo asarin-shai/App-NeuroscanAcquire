@@ -23,7 +23,7 @@
       <item>
        <widget class="QLineEdit" name="ipEdit">
         <property name="text">
-         <string>10.0.1.100</string>
+         <string/>
         </property>
        </widget>
       </item>

@@ -2,21 +2,30 @@
 #include "ui_widget.h"
 #include <QDebug>
 #include <QString>
+#include <QTimer>
 #include <QtConcurrent/QtConcurrent>
 
-Widget::Widget(QWidget* parent) : QWidget(parent), ui(new Ui::Widget) {
+Widget::Widget(const AppConfig& cfg, QWidget* parent) : QWidget(parent), ui(new Ui::Widget), config(cfg) {
     ui->setupUi(this);
 
     connect(this, SIGNAL(transmit_msg(QString)), this, SLOT(display(QString)));
 
     thread = new QThread;
     nsa = new NsaTransporter;
+    nsa->setRuntimeConfig(config.lslName, config.lslType, config.lslSourceId, config.pingIntervalMs);
     nsa->moveToThread(thread);
     connect(thread, SIGNAL(started()), nsa, SLOT(init()));
+    connect(thread, SIGNAL(started()), nsa, SLOT(apply_runtime_config()));
     connect(thread, SIGNAL(finished()), nsa, SLOT(deleteLater()));
     connect(this, SIGNAL(set_host(QString, int)), nsa, SLOT(set_host(QString, int)));
     connect(this, SIGNAL(send_code(QByteArray)), nsa, SLOT(send(QByteArray)));
     thread->start();
+
+    ui->ipEdit->setText(config.host);
+    ui->portEdit->setValue(config.port);
+
+    if (config.autoconnect)
+        QTimer::singleShot(0, this, SLOT(startSessionFromConfig()));
 }
 
 Widget::~Widget() {
@@ -32,6 +41,8 @@ void Widget::display(QString str) {
     ui->statusbar->append(str);
     // ui->statusbar->moveCursor(QTextCursor::End);
 }
+
+void Widget::startSessionFromConfig() { on_pushButton_clicked(); }
 
 void Widget::on_pushButton_clicked() {
 
