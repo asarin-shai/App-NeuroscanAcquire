@@ -25,11 +25,18 @@ private:
     qint64 npackets;
     lsl::stream_info lslinfo;
     lsl::stream_outlet* lsloutlet;
+    QString lslName;
+    QString lslType;
+    QString lslSourceId;
+    int pingIntervalMs;
+    bool hasOutlet;
 
     vector<vector<qint32>> output;
 
 public slots:
+    void setRuntimeConfig(const QString&, const QString&, const QString&, int);
     void init();
+    void apply_runtime_config();
     void set_host(const QString&, const int&);
     void send(QByteArray);
     void data_handler();

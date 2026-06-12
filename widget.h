@@ -12,11 +12,21 @@ namespace Ui {
 class Widget;
 }
 
+struct AppConfig {
+    QString host;
+    int port = 4000;
+    bool autoconnect = false;
+    QString lslName = "Neuroscan";
+    QString lslType = "EEG";
+    QString lslSourceId = "Neuroscan_sdetsff";
+    int pingIntervalMs = 100;
+};
+
 class Widget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit Widget(QWidget* parent = 0);
+    explicit Widget(const AppConfig& cfg, QWidget* parent = 0);
     ~Widget();
 
 public:
@@ -25,6 +35,7 @@ public:
 private slots:
     void on_pushButton_clicked();
     void thread_stop();
+    void startSessionFromConfig();
     void display(QString);
 
 signals:
@@ -34,6 +45,7 @@ signals:
 
 private:
     Ui::Widget* ui;
+    AppConfig config;
 
 private:
     QThread* thread;

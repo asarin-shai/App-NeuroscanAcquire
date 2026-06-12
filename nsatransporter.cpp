@@ -1,18 +1,34 @@
 #include "nsatransporter.h"
 
-NsaTransporter::NsaTransporter() {}
+NsaTransporter::NsaTransporter()
+    : lslName("Neuroscan"), lslType("EEG"), lslSourceId("Neuroscan_sdetsff"),
+      pingIntervalMs(100), hasOutlet(false) {}
+
+void NsaTransporter::setRuntimeConfig(const QString& name, const QString& type,
+                                      const QString& sourceId, int pingMs) {
+    lslName = name.isEmpty() ? "Neuroscan" : name;
+    lslType = type.isEmpty() ? "EEG" : type;
+    lslSourceId = sourceId.isEmpty() ? "Neuroscan_sdetsff" : sourceId;
+    pingIntervalMs = qBound(10, pingMs, 60000);
+}
 
 void NsaTransporter::init() {
     npackets = 0;
+    hasOutlet = false;
     socket = new QTcpSocket;
     connect(socket, SIGNAL(readyRead()), this, SLOT(data_handler()));
     connect(socket, SIGNAL(error(QAbstractSocket::SocketError)), this,
             SLOT(error_handler(QAbstractSocket::SocketError)));
     socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
     timer = new QTimer;
-    timer->setInterval(100);
+    timer->setInterval(pingIntervalMs);
     connect(timer, SIGNAL(timeout()), this, SLOT(ping()));
     return;
+}
+
+void NsaTransporter::apply_runtime_config() {
+    if (timer)
+        timer->setInterval(pingIntervalMs);
 }
 
 void NsaTransporter::send(QByteArray data) {
@@ -26,7 +42,10 @@ void NsaTransporter::set_host(const QString& host, const int& port) {
         socket->disconnectFromHost();
         socket->waitForDisconnected();
         timer->stop();
-        delete lsloutlet;
+        if (hasOutlet) {
+            delete lsloutlet;
+            hasOutlet = false;
+        }
         qInfo() << "disconnect from " << socket->peerName() << socket->peerPort();
         return;
     }
@@ -55,12 +74,14 @@ void NsaTransporter::data_handler() {
                     std::vector<qint32>(info.mEEGChannels + info.mEventChannels));
                 output = chunk;
                 lslinfo =
-                    lsl::stream_info("Neuroscan", "EEG", info.mEEGChannels + info.mEventChannels,
-                                     info.mSamplingRate, lsl::cf_int32, "Neuroscan_sdetsff");
+                    lsl::stream_info(lslName.toStdString(), lslType.toStdString(),
+                                     info.mEEGChannels + info.mEventChannels, info.mSamplingRate,
+                                     lsl::cf_int32, lslSourceId.toStdString());
                 lslinfo.desc()
                     .append_child("settings")
                     .append_child_value("Resolusion", std::to_string(info.mResolution));
                 lsloutlet = new lsl::stream_outlet(lslinfo);
+                hasOutlet = true;
                 timer->start();
                 qInfo() << "autoconfig:" << info.mEEGChannels << info.mEventChannels
                         << info.mSamplesInBlock << info.mSamplingRate << info.mDataDepth;
